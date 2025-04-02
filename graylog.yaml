@@ -52,7 +52,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: graylog-password-secret
-              key: DATANODE_HASH
+              key: graylog-password-secret
         - name: GRAYLOG_ROOT_PASSWORD_SHA2
           valueFrom:
             secretKeyRef:
