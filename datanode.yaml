@@ -37,7 +37,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: graylog-password-secret
-              key: graylog-password-secret
+              key: GRAYLOG_PASSWORD_SECRET
         ports:
         - containerPort: 8999
         - containerPort: 9200
