@@ -1,0 +1,146 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: graylog
+  name: graylog
+  namespace: graylog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: graylog
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: graylog
+    spec:
+      hostname: server
+      restartPolicy: Always
+      volumes:
+      - name: graylog-data
+        emptyDir: {}
+      initContainers:
+      - name: wait-for-mogodb
+        image: busybox
+        command: ["sh", "-c", "until nc -z mongodb 27017; do echo Waiting for mongodb to to start; sleep 1; done;"]
+      - name: wait-for-datanode
+        image: busybox
+        command: ["sh", "-c", "until nc -z datanode 8999; do echo Waiting for datanode availability; sleep 1; done;"]
+      containers:
+      - command:
+        - /usr/bin/tini
+        - /docker-entrypoint.sh
+        image: graylog/graylog:6.1.8
+        name: graylog
+        volumeMounts:
+        - mountPath: /usr/share/graylog/data/data
+          name: graylog-data
+        env:
+        - name: SELFSIGNED_STARTUP
+          value: "false"
+        - name: GRAYLOG_NODE_ID_FILE
+          value: "/usr/share/graylog/data/data/node-id"
+        - name: GRAYLOG_HTTP_BIND_ADDRESS
+          value: "0.0.0.0:9000"
+        - name: GRAYLOG_HTTP_EXTERNAL_URI
+          value: "http://localhost:9000/"
+        - name: GRAYLOG_MONGODB_URI
+          value: "mongodb://mongodb:27017/graylog"
+        - name: GRAYLOG_PASSWORD_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: graylog-password-secret
+              key: DATANODE_HASH
+        - name: GRAYLOG_ROOT_PASSWORD_SHA2
+          valueFrom:
+            secretKeyRef:
+              name: graylog-root-password-sha256
+              key: GRAYLOG_PASSWORD_SHA256
+        resources: {}
+        ports:
+        - containerPort: 5044
+          name: beats
+        - containerPort: 5140
+          name: syslog-tcp
+          protocol: TCP
+        - containerPort: 5140
+          name: syslog-udp
+          protocol: UDP
+        - containerPort: 5555
+          name: raw-tcp
+          protocol: TCP
+        - containerPort: 5555
+          name: raw-udp
+          protocol: UDP
+        - containerPort: 9000
+          name: server-api
+        - containerPort: 12201
+          name: gelf-tcp
+          protocol: TCP
+        - containerPort: 12201
+          name: gelf-udp
+          protocol: UDP
+        - containerPort: 13301
+          name: forwarder-data
+        - containerPort: 13302
+          name: forwarder-conf
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: graylog
+  name: graylog
+  namespace: graylog
+spec:
+  ports:
+  - name: port-1
+    port: 5044
+    protocol: TCP
+    targetPort: 5044
+  - name: port-2-tcp
+    port: 5140
+    protocol: TCP
+    targetPort: 5140
+  - name: port-2-udp
+    port: 5140
+    protocol: UDP
+    targetPort: 5140
+  - name: port-3-tcp
+    port: 5555
+    protocol: TCP
+    targetPort: 5555
+  - name: port-3-udp
+    port: 5555
+    protocol: UDP
+    targetPort: 5555
+  - name: port-4
+    port: 9000
+    nodePort: 30900
+    protocol: TCP
+    targetPort: 9000
+  - name: port-5-tcp
+    port: 12201
+    protocol: TCP
+    targetPort: 12201
+  - name: port-5-udp
+    port: 12201
+    protocol: UDP
+    targetPort: 12201
+  - name: port-6
+    port: 13301
+    protocol: TCP
+    targetPort: 13301
+  - name: port-7
+    port: 13302
+    protocol: TCP
+    targetPort: 13302
+  selector:
+    app: graylog
+  type: NodePort
+status:
+  loadBalancer: {}
