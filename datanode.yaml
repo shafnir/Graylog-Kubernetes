@@ -4,12 +4,12 @@ metadata:
   name: graylog-datanode-pvc
   namespace: graylog
 spec:
-  storageClassName: hostpath
+  storageClassName: hostpath # Can be used for manual PV provisioning, or automatic provisioning using the hostpath provisioner from https://artifacthub.io/packages/helm/rimusz/hostpath-provisioner
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 8Gi
+      storage: 8Gi # Set as much storage as you need for your datanode storage
 ---
 apiVersion: apps/v1
 kind: Deployment
