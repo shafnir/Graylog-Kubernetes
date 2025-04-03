@@ -13,6 +13,7 @@ spec:
 ---
 apiVersion: apps/v1
 kind: Deployment
+metadata:
   labels:
     app: graylog
   name: graylog
@@ -32,8 +33,14 @@ spec:
       restartPolicy: Always
       volumes:
       - name: graylog-data
-        persistentVolumeClaim:
-          claimName: graylog-pvc
+        emptyDir: {}
+      initContainers:
+      - name: wait-for-mogodb
+        image: busybox
+        command: ["sh", "-c", "until nc -z mongodb 27017; do echo Waiting for mongodb to to start; sleep 1; done;"]
+      - name: wait-for-datanode
+        image: busybox
+        command: ["sh", "-c", "until nc -z datanode 8999; do echo Waiting for datanode availability; sleep 1; done;"]
       containers:
       - command:
         - /usr/bin/tini
@@ -95,7 +102,6 @@ status: {}
 apiVersion: v1
 kind: Service
 metadata:
-  creationTimestamp: null
   labels:
     app: graylog
   name: graylog
