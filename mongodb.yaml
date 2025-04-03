@@ -1,29 +1,22 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
-  creationTimestamp: null
   labels:
     app: mongodb
   name: mongodb
   namespace: graylog
 spec:
-  replicas: 1
+  serviceName: "mongodb"
+  replicas: 1 # Increase replicas as needed
   selector:
     matchLabels:
       app: mongodb
-  strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app: mongodb
     spec:
       hostname: mongodb
-      volumes:
-      - name: mongodb-data
-        emptyDir: {}
-      - name: mongodb-config
-        emptyDir: {}
       restartPolicy: Always
       containers:
       - image: mongo:8.0
@@ -35,7 +28,21 @@ spec:
           name: mongodb-config
         ports:
         - containerPort: 27017
-        resources: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: mongodb-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 4Gi # Set as much storage as needed
+  - metadata:
+      name: mongodb-config
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 4Gi # Set as much storage as needed
 status: {}
 ---
 apiVersion: v1
@@ -57,3 +64,18 @@ spec:
   type: NodePort
 status:
   loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless-mongodb
+  namespace: graylog
+  labels:
+    app: mongodb
+spec:
+  ports:
+  - port: 27017
+    name: mongodb
+  clusterIP: None
+  selector:
+    app: mongodb
