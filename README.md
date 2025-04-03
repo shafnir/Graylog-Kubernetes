@@ -8,74 +8,101 @@
   A fully working Kubernetes deployment of <strong>Graylog Open Source.</strong>
 </p>
 
----
+
 
 ## 📌 Overview
 
-
 This setup deploys a minimal Graylog stack with:
-- **Graylog core**
+
+- **Graylog Core**
 - **OpenSearch DataNode**
-- **Secrets management**
-- **Persistent volumes (PVCs)** via `hostpath-provisioner`
-- **NodePort exposure**
+- **Secrets Management**
+- **Persistent Volumes (PVCs)** via `hostpath-provisioner`
+- **NodePort Exposure**
+
+## Additional Notes
+
+Please review the allocated resources in the PVCs and the mongodb StatefulSet and ensure it matches your requirements.  
+This deployment is made for a small lab environment, it is recommened to increase the replicas and the allocated storage in the PVCs.
+
 
 ## ⚙️ Prerequisites
 
-Kubernetes cluster (or minikube)  
-kubectl  
-hostpath-provisioner installed from <a href="https://artifacthub.io/packages/helm/rimusz/hostpath-provisioner">ArtifactHub</a>
-
-## Deployment Steps
+- Kubernetes cluster (e.g. Minikube or real cluster)  
+- `kubectl` CLI configured  
+- `hostpath-provisioner` installed from [ArtifactHub](https://artifacthub.io/packages/helm/rimusz/hostpath-provisioner)
 
 
-1. Create a namespace named graylog 
-```bash
-kubectl create ns graylog
-```
 
-2. Create the graylog-password-secret for internal communications
-```bash
-kubectl create secret generic -n graylog graylog-password-secret --from-literal=GRAYLOG_PASSWORD_SECRET=$(< /dev/urandom tr -dc A-Z-a-z-0-9 | head -c${1:-96};echo;)
-```
+## 🚀 Deployment Steps
 
-3. Generate a root password hash for the Graylog UI
-```bash
-echo -n "Enter Password: " && head -1 </dev/stdin | tr -d '\n' | sha256sum | cut -d" " -f1
-```
+1. Create a namespace named `graylog`:
 
-4. Create the root-password-sha256 secret with the result of the last command (the hash)
-```bash
-kubectl create secret generic -n graylog graylog-root-password-sha256 --from-literal=GRAYLOG_PASSWORD_SHA256=['YOUR PASSWORD HASH']
-```
+    ```bash
+    kubectl create ns graylog
+    ```
 
-5. Clone the YAML files into your local folder and apply them with kubectl
-```bash
-kubectl apply -f .
-```
+2. Create the `graylog-password-secret` used for internal communication:
 
-6. Check the pods status
-```bash
-kubectl get pods -n graylog
-```
+    ```bash
+    kubectl create secret generic -n graylog graylog-password-secret \
+      --from-literal=GRAYLOG_PASSWORD_SECRET=$(< /dev/urandom tr -dc A-Z-a-z-0-9 | head -c${1:-96}; echo)
+    ```
 
-```bash
-NAME                        READY   STATUS    RESTARTS   AGE
-datanode-5dcff9cffb-qf26r   1/1     Running   0          57m
-graylog-74558bdf5b-zcc8h    1/1     Running   0          61m
-mongodb-0                   1/1     Running   0          61m
-```
+3. Generate a SHA256 hash of your desired root password:
 
-7. Extract the initial login credentials for the UI from the graylog pod
-```bash
-kubectl logs -n graylog graylog-74558bdf5b-zcc8h # Copy the graylog pod name from above (in your case it will be different)
-```
-You Should get something like this:
-```bash
-Initial configuration is accessible at 0.0.0.0:9000, with username 'admin' and password 'bhQRFNUvIe'.
-Try clicking on http://admin:bhQRFNUvIe@0.0.0.0:9000
-```
+    ```bash
+    echo -n "Enter Password: " && head -1 </dev/stdin | tr -d '\n' | sha256sum | cut -d" " -f1
+    ```
 
-8. Access your Graylog UI with http://[node-ip]:30900
+4. Create the `graylog-root-password-sha256` secret using the hash:
 
-9. After completing the preflight setup, use the password you set in step 3 to log in to your Graylog
+    ```bash
+    kubectl create secret generic -n graylog graylog-root-password-sha256 \
+      --from-literal=GRAYLOG_PASSWORD_SHA256=[YOUR_PASSWORD_HASH]
+    ```
+
+5. Clone this repository and apply the manifest files:
+
+    ```bash
+    git clone https://github.com/shafnir/Graylog-Kubernetes.git
+    cd Graylog-Kubernetes
+    kubectl apply -f .
+    ```
+
+6. Verify pods are running:
+
+    ```bash
+    kubectl get pods -n graylog
+    ```
+
+    Example output:
+    ```bash
+    NAME                        READY   STATUS    RESTARTS   AGE
+    datanode-5dcff9cffb-qf26r   1/1     Running   0          57m
+    graylog-74558bdf5b-zcc8h    1/1     Running   0          61m
+    mongodb-0                   1/1     Running   0          61m
+    ```
+
+7. Retrieve the initial admin password from Graylog logs:
+
+    ```bash
+    kubectl logs -n graylog graylog-74558bdf5b-zcc8h
+    ```
+
+    You should see something like:
+
+    ```bash
+    Initial configuration is accessible at 0.0.0.0:9000, with username 'admin' and password 'bhQRFNUvIe'.
+    Try clicking on http://admin:bhQRFNUvIe@0.0.0.0:9000
+    ```
+
+8. Access the Graylog UI:
+
+    ```
+    http://[your-node-ip]:30900
+    ```
+
+9. After completing the initial setup wizard, log in with username `admin` and the password you set in **Step 3**.
+
+---
