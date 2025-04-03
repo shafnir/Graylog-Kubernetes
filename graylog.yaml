@@ -1,6 +1,18 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: graylog-pvc
+  namespace: graylog
+spec:
+  storageClassName: hostpath # Can be used for manual PV provisioning, or automatic provisioning using the hostpath provisioner from https://artifacthub.io/packages/helm/rimusz/hostpath-provisioner
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 4Gi # Set as much storage as needed for Graylog main component
+---
 apiVersion: apps/v1
 kind: Deployment
-metadata:
   labels:
     app: graylog
   name: graylog
@@ -20,14 +32,8 @@ spec:
       restartPolicy: Always
       volumes:
       - name: graylog-data
-        emptyDir: {}
-      initContainers:
-      - name: wait-for-mogodb
-        image: busybox
-        command: ["sh", "-c", "until nc -z mongodb 27017; do echo Waiting for mongodb to to start; sleep 1; done;"]
-      - name: wait-for-datanode
-        image: busybox
-        command: ["sh", "-c", "until nc -z datanode 8999; do echo Waiting for datanode availability; sleep 1; done;"]
+        persistentVolumeClaim:
+          claimName: graylog-pvc
       containers:
       - command:
         - /usr/bin/tini
@@ -38,8 +44,6 @@ spec:
         - mountPath: /usr/share/graylog/data/data
           name: graylog-data
         env:
-        - name: SELFSIGNED_STARTUP
-          value: "false"
         - name: GRAYLOG_NODE_ID_FILE
           value: "/usr/share/graylog/data/data/node-id"
         - name: GRAYLOG_HTTP_BIND_ADDRESS
@@ -98,44 +102,44 @@ metadata:
   namespace: graylog
 spec:
   ports:
-  - name: port-1
+  - name: beats-input
     port: 5044
     protocol: TCP
     targetPort: 5044
-  - name: port-2-tcp
+  - name: syslog-tcp-input
     port: 5140
     protocol: TCP
     targetPort: 5140
-  - name: port-2-udp
+  - name: syslog-udp-input
     port: 5140
     protocol: UDP
     targetPort: 5140
-  - name: port-3-tcp
+  - name: raw-tcp-input
     port: 5555
     protocol: TCP
     targetPort: 5555
-  - name: port-3-udp
+  - name: raw-udp-input
     port: 5555
     protocol: UDP
     targetPort: 5555
-  - name: port-4
+  - name: graylog-rest-api # Also UI Port
     port: 9000
     nodePort: 30900
     protocol: TCP
     targetPort: 9000
-  - name: port-5-tcp
+  - name: gelf-tcp-input
     port: 12201
     protocol: TCP
     targetPort: 12201
-  - name: port-5-udp
+  - name: gelf-udp-input
     port: 12201
     protocol: UDP
     targetPort: 12201
-  - name: port-6
+  - name: graylog-forwarder
     port: 13301
     protocol: TCP
     targetPort: 13301
-  - name: port-7
+  - name: graylog-forwarder-mapping
     port: 13302
     protocol: TCP
     targetPort: 13302
