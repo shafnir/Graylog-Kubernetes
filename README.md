@@ -15,7 +15,7 @@
 This setup deploys a minimal Graylog stack with:
 
 - **Graylog Core**
-- **OpenSearch DataNode**
+- **Graylog DataNode**
 - **Secrets Management**
 - **Persistent Volumes (PVCs)** via `hostpath-provisioner`
 - **NodePort Exposure**
