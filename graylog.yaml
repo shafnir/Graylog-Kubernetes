@@ -45,7 +45,7 @@ spec:
       - command:
         - /usr/bin/tini
         - /docker-entrypoint.sh
-        image: graylog/graylog:6.1.8
+        image: graylog/graylog:6.1.10
         name: graylog
         volumeMounts:
         - mountPath: /usr/share/graylog/data/data
