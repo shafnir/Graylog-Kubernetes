@@ -40,7 +40,7 @@ spec:
         image: busybox
         command: ["sh", "-c", "until nc -z mongodb 27017; do echo Waiting for mongodb availability; sleep 1; done;"]
       containers:
-      - image: graylog/graylog-datanode:6.1.8
+      - image: graylog/graylog-datanode:6.1.10
         name: datanode
         env:
         - name: GRAYLOG_DATANODE_NODE_ID_FILE
