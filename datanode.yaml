@@ -1,48 +1,40 @@
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: graylog-datanode-pvc
-  namespace: graylog
-spec:
-  storageClassName: hostpath # Can be used for manual PV provisioning, or automatic provisioning using the hostpath provisioner from https://artifacthub.io/packages/helm/rimusz/hostpath-provisioner
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 8Gi # Set as much storage as you need for your datanode storage
----
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   labels:
     app: datanode
   name: datanode
   namespace: graylog
 spec:
-  replicas: 1
+  serviceName: "headless-datanode"  # Headless service name required by StatefulSet
+  replicas: 3 # Modify replicas as needed
   selector:
     matchLabels:
       app: datanode
-  strategy: {}
   template:
     metadata:
       labels:
         app: datanode
     spec:
-      hostname: datanode
       restartPolicy: Always
-      volumes:
-      - name: graylog-datanode
-        persistentVolumeClaim:
-          claimName: graylog-datanode-pvc
       initContainers:
       - name: wait-for-mogodb
         image: busybox
         command: ["sh", "-c", "until nc -z mongodb 27017; do echo Waiting for mongodb availability; sleep 1; done;"]
       containers:
-      - image: graylog/graylog-datanode:6.1.10
-        name: datanode
+      - name: datanode
+        image: graylog/graylog-datanode:6.1.10
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: HEADLESS_SERVICE_NAME
+          value: "headless-datanode" # If you change the headless service name, update this value
         - name: GRAYLOG_DATANODE_NODE_ID_FILE
           value: "/var/lib/graylog-datanode/node-id"
         - name: GRAYLOG_DATANODE_MONGODB_URI
@@ -52,24 +44,40 @@ spec:
             secretKeyRef:
               name: graylog-password-secret
               key: GRAYLOG_PASSWORD_SECRET
+        - name: GRAYLOG_DATANODE_NODE_NAME
+          value: "$(POD_NAME).$(HEADLESS_SERVICE_NAME).$(NAMESPACE).svc.cluster.local"
         ports:
-        - containerPort: 8999
-        - containerPort: 9200
-        - containerPort: 9300
+        - name: datanode-api
+          containerPort: 8999
+        - name: port-9200
+          containerPort: 9200
+        - name: port-9300
+          containerPort: 9300
         volumeMounts:
-        - mountPath: /var/lib/graylog-datanode
-          name: graylog-datanode
+        - name: graylog-datanode
+          mountPath: /var/lib/graylog-datanode
         resources:
           requests:
             memory: "1Gi"
           limits:
             memory: "3Gi"
-status: {}
+      volumes:
+      - name: graylog-entrypoint
+        configMap:
+          name: graylog-entrypoint-cm
+          defaultMode: 0755
+  volumeClaimTemplates:
+  - metadata:
+      name: graylog-datanode
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 8Gi
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  creationTimestamp: null
   labels:
     app: datanode
   name: datanode
@@ -92,3 +100,22 @@ spec:
     app: datanode
 status:
   loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: headless-datanode
+  namespace: graylog
+  labels:
+    app: datanode
+spec:
+  ports:
+  - name: datanode-api
+    port: 8999
+  - name: port-9200
+    port: 9200
+  - name: port-9300
+    port: 9300
+  clusterIP: None
+  selector:
+    app: datanode
